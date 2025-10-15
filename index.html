@@ -1,174 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Chat con Nelly Saori</title>
-  <style>
-    body { font-family: Arial; margin:0; display:flex; flex-direction:column; height:100vh; background:#f4f4f9; }
-    .arriba { display:flex; flex:1; border-bottom:2px solid #ddd; }
-    .gif-box {
-      width: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #fff;
-    }
-    .gif-box img {
-      width: 100%;
-      height: auto;
-      max-width: 800px;
-      border-radius: 20px;
-    }
-    .chat-box { width:50%; padding:10px; background:#fafafa; overflow-y:auto; }
-    .chat-message { margin:5px 0; padding:8px 10px; border-radius:10px; max-width:70%; clear:both; }
-    .user { background:#d1e7ff; float:right; text-align:right; }
-    .bot { background:#e6e6e6; float:left; text-align:left; }
-    .abajo { display:flex; padding:10px; background:#fff; border-top:2px solid #ddd; }
-    .abajo input { flex:1; padding:10px; font-size:16px; border:1px solid #ccc; border-radius:5px; margin-right:10px; }
-    .abajo button { padding:10px 20px; font-size:16px; border:none; background:#007bff; color:white; border-radius:5px; cursor:pointer; }
-    .abajo button:hover { background:#0056b3; }
-  </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tres en Raya — IA (Minimax)</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="arriba">
-    <div class="gif-box">
-      <img src="robot-ai.gif" alt="IA">
-    </div>
-    <div class="chat-box" id="chat-box"></div>
-  </div>
+  <h1>Tres en Raya — Juega contra la IA</h1>
+  <div id="board" class="board"></div>
+  <div id="status" class="status"></div>
+  <button id="reset">Reiniciar</button>
 
-  <div class="abajo">
-    <input type="text" id="user-input" placeholder="Escribe tu mensaje...">
-    <button onclick="enviarMensaje()">Enviar</button>
-  </div>
-
-  
-  <script src="elizadata.js"></script>
-<script src="elizabot.js"></script>
-
-<script>
-  const conocimientos = {
-    "hola": "Hola, en qué puedo ayudarte?.",
-    "como te llamas?": "Mi nombre es Nelly Saori.",
-    "cuántos años tienes?": "Tengo 21 años.",
-    "dónde naciste?": "Nací en Guadalajara, Jalisco.",
-    "dónde vives?": "Vivo en Guadalajara, Jalisco.",
-    "qué estudias?": "Estudio Ingeniería en Sistemas.",
-    "dónde estudias?": "Estudio en la UVM Guadalajara Sur.",
-    "cuál es tu carrera?": "Mi carrera es Ingeniería en Sistemas.",
-    "qué edad tienes?": "Tengo 21 años.",
-    "qué ciudad es tu favorita?": "Me gusta Roma.",
-    "cuál es tu comida favorita?": "Me gusta la pasta.",
-    "qué te gusta hacer en tu tiempo libre?": "Me gusta cantar, jugar videojuegos y pasar tiempo con mis amigos.",
-    "tienes mascotas?": "Sí, tengo 2 mascotas.",
-    "cómo se llaman tus mascotas?": "Una se llama Cuy y la otra Honey.",
-    "qué deporte te gusta?": "Me gusta el fútbol, la F1, el básquet, el americano, el tenis.",
-    "practicas algún deporte?": "Voy al gimnasio.",
-    "qué idiomas hablas?": "Hablo español e inglés a nivel B2.",
-    "cuál es tu color favorito?": "Me gusta el negro y aqua.",
-    "tienes hermanos?": "Sí, tengo una hermana.",
-    "cuál es tu película favorita?": "Me gusta 'Siniester'.",
-    "cuál es tu música favorita?": "Me gusta el rock y el pop.",
-    "tienes pareja?": "No, actualmente no.",
-    "qué te gusta estudiar?": "Me gusta estudiar programación y tecnología.",
-    "qué lenguaje de programación prefieres?": "Prefiero Python.",
-    "qué piensas de la inteligencia artificial?": "Creo que será nuestro futuro.",
-    "cuál es tu videojuego favorito?": "Me gusta 'Fortnite'.",
-    "cuál es tu meta profesional?": "Quiero ser una buena ingeniera en sistemas y trabajar en tecnología.",
-    "qué hobbies tienes?": "Me gusta leer, cantar y convivir con mis mascotas.",
-    "te gusta viajar?": "Sí, me gusta conocer nuevos lugares.",
-    "cuál es tu lugar favorito en Guadalajara?": "Me gusta el Bosque de la Primavera.",
-    "qué opinas de la universidad?": "Es una buena escuela, pero no escucha a sus estudiantes.",
-    "qué opinas de tus compañeros?": "Mis compañeros son amigables y colaborativos.",
-    "cómo te sientes hoy?": "Me siento bien, gracias por preguntar.",
-    "qué planes tienes para hoy?": "Hoy planeo estudiar y descansar un poco.",
-    "qué te gusta comer?": "Me gusta comer tacos y pizza.",
-    "prefieres dulce o salado?": "Prefiero lo salado.",
-    "qué color de ropa te gusta?": "Me gusta usar ropa azul o negra.",
-    "tienes algún talento especial?": "Soy buena programando y resolviendo problemas de lógica.",
-    "qué te motiva?": "Me motiva aprender cosas nuevas y mejorar cada día.",
-    "prefieres trabajar solo o en equipo?": "Prefiero trabajar en equipo.",
-    "qué redes sociales usas?": "Uso Instagram y WhatsApp.",
-    "qué tipo de películas te gustan?": "Me gustan las películas de acción y ciencia ficción.",
-    "tienes algún héroe?": "Admiro a varias personas que innovan en tecnología.",
-    "qué opinas de la tecnología?": "La tecnología es increíble y cambia la vida de las personas.",
-    "prefieres ciudad o campo?": "Prefiero la ciudad.",
-    "cuál es tu estación favorita del año?": "Me gusta el verano.",
-    "qué tipo de música escuchas mientras estudias?": "Escucho música instrumental o relajante.",
-    "cuál es tu bebida favorita?": "Me gusta el refresco de cola.",
-    "tienes alguna meta personal?": "Quiero viajar a otros países y conocer nuevas culturas.",
-    "cómo te defines?": "Soy curiosa, creativa y perseverante.",
-    "qué quieres ser de grande?": "Quiero ser una ingeniera en sistemas exitosa.",
-    "qué opinas de tus estudios?": "Me gustan y son un reto interesante.",
-    "cuál es tu asignatura favorita?": "Me gusta programación y matemáticas.",
-    "qué opinas de los exámenes?": "A veces estresantes, pero necesarios.",
-    "prefieres estudiar de día o de noche?": "Prefiero estudiar de noche."
-  };
-
-  function normalizar(texto) {
-    return texto
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[¿?¡!.,]/g, "")
-      .trim();
-  }
-
-  let conocimientosNormalizados = {};
-  for (let clave in conocimientos) {
-    conocimientosNormalizados[normalizar(clave)] = conocimientos[clave];
-  }
-
-  let eliza = new ElizaBot();
-
-  // --- 🔹 Detecta frases que abren el juego ---
-  const triggers = [
-    "vamos a jugar juego de tres rayas",
-    "jugar tres en raya",
-    "juguemos tres en raya",
-    "quiero jugar tic tac toe",
-    "vamos a jugar tic tac toe",
-    "jugar juego de tres rayas",
-    "jugar gato"
-  ];
-
-  function procesarMensaje(msg) {
-    msg = normalizar(msg);
-
-    // Si el usuario pide jugar
-    if (triggers.includes(msg) || triggers.some(t => msg.includes(t))) {
-      window.open('../tic-tac-toe/index.html', '_blank', 'noopener');
-      return "Abriendo el juego de Tres en Raya en una nueva ventana. ¡Disfruta 🎮!";
-    }
-
-    if (conocimientosNormalizados[msg]) {
-      return conocimientosNormalizados[msg];
-    }
-
-    return eliza.transform(msg);
-  }
-
-  function enviarMensaje() {
-    let input = document.getElementById("user-input");
-    let mensaje = input.value.trim();
-    if (mensaje === "") return;
-
-    agregarMensaje(mensaje, "user");
-    let respuesta = procesarMensaje(mensaje);
-    setTimeout(() => agregarMensaje(respuesta, "bot"), 400);
-    input.value = "";
-  }
-
-  function agregarMensaje(texto, tipo) {
-    let chatBox = document.getElementById("chat-box");
-    let msg = document.createElement("div");
-    msg.classList.add("chat-message", tipo);
-    msg.innerText = texto;
-    chatBox.appendChild(msg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
-</script>
-
-  </script>
+  <!-- 👇 Mueve el script justo antes de cerrar el body -->
+  <script src="game.js"></script>
 </body>
 </html>

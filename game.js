@@ -1,110 +1,182 @@
-// Tic-Tac-Toe con IA Minimax
-const boardEl = document.getElementById('board');
-const statusEl = document.getElementById('status');
-const resetBtn = document.getElementById('reset');
+document.addEventListener("DOMContentLoaded", () => {
+  const boardDiv = document.getElementById("board");
+  const reiniciarBtn = document.getElementById("reiniciar");
 
-let state = ["","","","","","","","",""];
-let human = 'X', ai = 'O';
-let gameOver = false;
+  const piezasUnicode = {
+    'r':'♜','n':'♞','b':'♝','q':'♛','k':'♚','p':'♟',
+    'R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔','P':'♙'
+  };
 
-function render(){
-  boardEl.innerHTML = '';
-  state.forEach((cell, idx) => {
-    const div = document.createElement('div');
-    div.className = 'cell' + (cell ? ' disabled' : '');
-    div.textContent = cell;
-    div.addEventListener('click', ()=> onCellClick(idx));
-    boardEl.appendChild(div);
-  });
-  const t = checkWinner(state);
-  if(t){
-    gameOver = true;
-    if(t.winner === 'draw') statusEl.textContent = 'Empate.';
-    else statusEl.textContent = (t.winner === human ? '¡Ganaste!' : 'La IA gana.');
-    Array.from(boardEl.children).forEach(c=>c.classList.add('disabled'));
-  } else {
-    statusEl.textContent = 'Tu turno (X)';
+  let board = [];
+  let turno = 'w';
+  let selected = null;
+
+  // Posición inicial
+  function iniciarTablero() {
+    board = [
+      ['r','n','b','q','k','b','n','r'],
+      ['p','p','p','p','p','p','p','p'],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['P','P','P','P','P','P','P','P'],
+      ['R','N','B','Q','K','B','N','R']
+    ];
+    turno = 'w';
+    selected = null;
+    dibujarTablero();
   }
-}
 
-function onCellClick(idx){
-  if(gameOver || state[idx]) return;
-  state[idx] = human;
-  render();
-  const t = checkWinner(state);
-  if(t) return;
-  setTimeout(()=> {
-    const mv = bestMove(state.slice(), ai);
-    if(mv !== -1) state[mv] = ai;
-    render();
-  }, 200);
-}
-
-function checkWinner(s){
-  const lines = [
-    [0,1,2],[3,4,5],[6,7,8],
-    [0,3,6],[1,4,7],[2,5,8],
-    [0,4,8],[2,4,6]
-  ];
-  for(const l of lines){
-    const [a,b,c]=l;
-    if(s[a] && s[a]===s[b] && s[a]===s[c]) return {winner: s[a]};
+  function dibujarTablero() {
+    boardDiv.innerHTML = '';
+    for(let i=0;i<8;i++){
+      for(let j=0;j<8;j++){
+        const square = document.createElement('div');
+        square.classList.add('square');
+        square.classList.add((i+j)%2===0?'white':'black');
+        square.dataset.row = i;
+        square.dataset.col = j;
+        square.innerText = piezasUnicode[board[i][j]] || '';
+        if(selected && selected.row===i && selected.col===j){
+          square.classList.add('selected');
+        }
+        square.addEventListener('click', onClickSquare);
+        boardDiv.appendChild(square);
+      }
+    }
   }
-  if(s.every(c=>c)) return {winner:'draw'};
-  return null;
-}
 
-function bestMove(s, player){
-  const avail = s.reduce((acc, val, i)=> { if(!val) acc.push(i); return acc; }, []);
-  if(avail.length === 0) return -1;
-  let bestScore = (player === ai) ? -Infinity : Infinity;
-  let move = -1;
-  for(const i of avail){
-    s[i] = player;
-    const score = minimax(s, 0, player === human ? ai : human);
-    s[i] = "";
-    if(player === ai){
-      if(score > bestScore){ bestScore = score; move = i;}
+  // Movimiento válido básico
+  function esMovimientoValido(r1,c1,r2,c2){
+    const pieza = board[r1][c1];
+    if(!pieza) return false;
+    const target = board[r2][c2];
+
+    // No capturar pieza propia
+    if(target && ((pieza === pieza.toUpperCase() && target === target.toUpperCase()) ||
+                  (pieza === pieza.toLowerCase() && target === target.toLowerCase()))) return false;
+
+    // Movimientos básicos por tipo de pieza
+    const dr = r2 - r1;
+    const dc = c2 - c1;
+
+    const absDr = Math.abs(dr);
+    const absDc = Math.abs(dc);
+
+    switch(pieza.toLowerCase()){
+      case 'p': // peón
+        const dir = (pieza==='P')?-1:1;
+        if(dc===0 && dr===dir && !target) return true;
+        if(dc===0 && dr===2*dir && ((pieza==='P'&&r1===6)||(pieza==='p'&&r1===1)) && !target && !board[r1+dir][c1]) return true;
+        if(absDc===1 && dr===dir && target) return true;
+        return false;
+      case 'r': return (dr===0 || dc===0) && esCaminoLibre(r1,c1,r2,c2);
+      case 'b': return absDr===absDc && esCaminoLibre(r1,c1,r2,c2);
+      case 'q': return (dr===0 || dc===0 || absDr===absDc) && esCaminoLibre(r1,c1,r2,c2);
+      case 'k': return absDr<=1 && absDc<=1;
+      case 'n': return (absDr===2 && absDc===1) || (absDr===1 && absDc===2);
+    }
+    return false;
+  }
+
+  function esCaminoLibre(r1,c1,r2,c2){
+    const dr = Math.sign(r2-r1);
+    const dc = Math.sign(c2-c1);
+    let r=r1+dr, c=c1+dc;
+    while(r!==r2 || c!==c2){
+      if(board[r][c]!=='') return false;
+      r+=dr; c+=dc;
+    }
+    return true;
+  }
+
+  function mover(r1,c1,r2,c2){
+    if(!esMovimientoValido(r1,c1,r2,c2)) return false;
+    const pieza = board[r1][c1];
+    board[r2][c2] = pieza;
+    board[r1][c1] = '';
+
+    // Promoción simple
+    if(pieza==='P' && r2===0) board[r2][c2]='Q';
+    if(pieza==='p' && r2===7) board[r2][c2]='q';
+
+    return true;
+  }
+
+  function verificarJaqueMate(color){
+    let reyExiste = false;
+    const rey = color==='w'?'K':'k';
+    for(let i=0;i<8;i++){
+      for(let j=0;j<8;j++){
+        if(board[i][j]===rey) reyExiste=true;
+      }
+    }
+    return !reyExiste;
+  }
+
+  function onClickSquare(e){
+    const row = parseInt(this.dataset.row);
+    const col = parseInt(this.dataset.col);
+    const pieza = board[row][col];
+
+    if(selected){
+      if(mover(selected.row,selected.col,row,col)){
+        selected=null;
+        turno = turno==='w'?'b':'w';
+        dibujarTablero();
+        if(verificarJaqueMate(turno)){
+          alert(turno==='w'?'¡Ganan negras!':'¡Ganan blancas!');
+          return;
+        }
+        if(turno==='b') setTimeout(turnoIA,300);
+      } else {
+        selected=null;
+        dibujarTablero();
+      }
     } else {
-      if(score < bestScore){ bestScore = score; move = i;}
+      if(pieza && ((turno==='w' && pieza===pieza.toUpperCase()) || (turno==='b' && pieza===pieza.toLowerCase()))){
+        selected={row,col};
+        dibujarTablero();
+      }
     }
   }
-  return move;
-}
 
-function minimax(s, depth, player){
-  const result = checkWinner(s);
-  if(result){
-    if(result.winner === ai) return 10 - depth;
-    if(result.winner === human) return depth - 10;
-    if(result.winner === 'draw') return 0;
-  }
-  const avail = s.reduce((acc, val, i)=> { if(!val) acc.push(i); return acc; }, []);
-  if(player === ai){
-    let maxEval = -Infinity;
-    for(const i of avail){
-      s[i] = ai;
-      const evalScore = minimax(s, depth+1, human);
-      s[i] = "";
-      maxEval = Math.max(maxEval, evalScore);
+  // IA básica: movimiento aleatorio legal
+  function turnoIA(){
+    const piezasIA = [];
+    for(let i=0;i<8;i++){
+      for(let j=0;j<8;j++){
+        const p=board[i][j];
+        if(p && p===p.toLowerCase()) piezasIA.push({row:i,col:j});
+      }
     }
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-    for(const i of avail){
-      s[i] = human;
-      const evalScore = minimax(s, depth+1, ai);
-      s[i] = "";
-      minEval = Math.min(minEval, evalScore);
-    }
-    return minEval;
-  }
-}
 
-resetBtn.addEventListener('click', ()=>{
-  state = ["","","","","","","","",""];
-  gameOver = false;
-  render();
+    let movido=false;
+    while(!movido && piezasIA.length){
+      const idx = Math.floor(Math.random()*piezasIA.length);
+      const pieza=piezasIA[idx];
+      const posibles=[];
+      for(let r=0;r<8;r++){
+        for(let c=0;c<8;c++){
+          if(esMovimientoValido(pieza.row,pieza.col,r,c)) posibles.push({r,c});
+        }
+      }
+      if(posibles.length){
+        const mv=posibles[Math.floor(Math.random()*posibles.length)];
+        mover(pieza.row,pieza.col,mv.r,mv.c);
+        movido=true;
+      } else {
+        piezasIA.splice(idx,1);
+      }
+    }
+    turno='w';
+    dibujarTablero();
+    if(verificarJaqueMate(turno)){
+      alert('¡Ganan negras!');
+    }
+  }
+
+  reiniciarBtn.addEventListener('click',iniciarTablero);
+  iniciarTablero();
 });
-
-render();
